@@ -4,27 +4,69 @@ author: "Alex Filo"
 date: "9/27/2021"
 output: html_document
 ---
+https://github.com/alexfilo/Week-3
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+
+```{r}
+library(dplyr)
+
+
+library(nycflights13)
+library(ggplot2)
+head(flights)
 ```
 
-## R Markdown
+1. How many flights have a missing dep_time? What other variables are missing? What might these rows represent?
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+```{r}
+missing_dep_time <- filter(flights, is.na(dep_time) == TRUE)
+head(missing_dep_time)
+length(missing_dep_time$dep_time)
+```
+These are 8255 rows that are missing a departure time. These rows are also missing values for the variables dep_delay, arr_time, arr_delay, arr_time. These rows may represent flights that were cancelled and never actually departed.
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
-```{r cars}
-summary(cars)
+2. Currently dep_time and sched_dep_time are convenient to look at, but hard to compute with because they’re not really continuous numbers. Convert them to a more convenient representation of number of minutes since midnight.
+
+```{r}
+x <- 515
+minutes <- x %% 100
+(hours <- (x - minutes) / 100)
+(minutes_since_midnight <- hours * 60 + minutes)
+
 ```
 
-## Including Plots
+```{r}
+mutate(flights, dep_time_minutes = dep_time %% 100, dep_time_hours = (dep_time - dep_time_minutes) / 100, dep_time_minutes_since_midnight = dep_time_hours * 60 + dep_time_minutes)
 
-You can also embed plots, for example:
+mutate(flights, sched_dep_time_minutes = sched_dep_time %% 100, sched_dep_time_hours = (sched_dep_time - sched_dep_time_minutes) / 100, sched_dep_time_minutes_since_midnight = sched_dep_time_hours * 60 + sched_dep_time_minutes)
 
-```{r pressure, echo=FALSE}
-plot(pressure)
 ```
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+3. Look at the number of canceled flights per day. Is there a pattern? Is the proportion of canceled flights related to the average delay? Use multiple dyplr operations, all on one line, concluding with ggplot(aes(x= ,y=)) + geom_point()
+
+
+```{r}
+library(lubridate)
+flights %>% mutate(day_of_year = yday(time_hour)) %>% 
+  group_by(day_of_year)%>% summarize(length(is.na(arr_delay))) %>% 
+  plot(type = 'l')
+```
+Yes there is clearly a pattern. It seems that the number of cancelled flights per day oscillates every other day
+
+
+
+```{r}
+library(lubridate)
+flights %>% 
+  mutate(day_of_year = yday(time_hour)) %>% 
+  group_by(day_of_year) %>% 
+  summarize(
+      cont = n(),
+      delay = mean(arr_delay, na.rm = TRUE),
+      cancelled_flights = mean(is.na(arr_delay))) %>%
+  ggplot( mapping = aes(x = cancelled_flights, y = delay)) +
+  geom_point()
+```
+
+Yes it does seem that the proportion of cancelled flights is related the average delay, they appear positively correlated.
